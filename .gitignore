@@ -13,3 +13,8 @@ out/
 Thumbs.db
 Desktop.ini
 .DS_Store
+# Build artifacts
+src/TargetAppMinimal/*.exe
+src/TargetAppMinimal/*.obj
+src/TargetAppRust/target/
+dumps/

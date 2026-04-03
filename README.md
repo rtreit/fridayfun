@@ -43,16 +43,26 @@ Verify: `cmake --version` should show `3.20+`.
 | `src/DebugLoader` | C# (.NET 8) | CLI that validates a target PID and loads the hook DLL via `LoadLibraryW`. |
 | `src/DebugHook` | C++ (CMake) | Native DLL — opens a process handle in `DLL_PROCESS_ATTACH`, closes it in `DLL_PROCESS_DETACH`. |
 | `src/TargetApp` | C++ (CMake) | Simple target process that prints its PID and keeps running for the debugger to attach to. |
+| `src/TargetAppMinimal` | C (no CRT) | Ultra-minimal target process — no C runtime, ~4.5 KB binary, ~3.9 MB working set. Smallest possible minidump footprint. |
+| `src/TargetAppRust` | Rust | Rust implementation of the target process. Uses std but optimized for size (LTO, strip, panic=abort). |
 
 ## Build Everything
 
 From the repo root:
 
 ```powershell
-# 1. Build the target app
+# 1. Build the target app (pick one)
 cd src\TargetApp
 cmake -B build -A x64
 cmake --build build --config Release
+
+# 1b. Build the minimal no-CRT target (requires VS Developer Command Prompt)
+cd src\TargetAppMinimal
+cl /O1 /GS- TargetAppMinimal.c /link /NODEFAULTLIB /ENTRY:Entry kernel32.lib /SUBSYSTEM:CONSOLE /MERGE:.rdata=.text /OUT:TargetAppMinimal.exe
+
+# 1c. Build the Rust target
+cd src\TargetAppRust
+cargo build --release
 
 # 2. Build the hook DLL
 cd ..\DebugHook
