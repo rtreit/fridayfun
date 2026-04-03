@@ -26,7 +26,8 @@ static void OnProcessAttach()
     // Open a handle with debug-useful access rights.
     g_hTargetProcess = OpenProcess(
         PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION |
-        PROCESS_QUERY_INFORMATION | PROCESS_CREATE_THREAD,
+        PROCESS_QUERY_INFORMATION | PROCESS_CREATE_THREAD |
+        PROCESS_SUSPEND_RESUME,
         FALSE,
         targetPid);
 
@@ -77,4 +78,40 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 extern "C" __declspec(dllexport) HANDLE GetTargetProcessHandle()
 {
     return g_hTargetProcess;
+}
+
+// NtSuspendProcess / NtResumeProcess from ntdll.
+typedef LONG(NTAPI* PFN_NtSuspendProcess)(HANDLE);
+typedef LONG(NTAPI* PFN_NtResumeProcess)(HANDLE);
+
+static PFN_NtSuspendProcess pfnSuspend = nullptr;
+static PFN_NtResumeProcess pfnResume = nullptr;
+
+static bool EnsureNtFunctions()
+{
+    if (pfnSuspend && pfnResume)
+        return true;
+
+    HMODULE hNtdll = GetModuleHandleA("ntdll.dll");
+    if (!hNtdll)
+        return false;
+
+    pfnSuspend = (PFN_NtSuspendProcess)GetProcAddress(hNtdll, "NtSuspendProcess");
+    pfnResume = (PFN_NtResumeProcess)GetProcAddress(hNtdll, "NtResumeProcess");
+    return pfnSuspend && pfnResume;
+}
+
+// Returns 0 on success, NTSTATUS error otherwise.
+extern "C" __declspec(dllexport) LONG SuspendTargetProcess()
+{
+    if (!g_hTargetProcess || !EnsureNtFunctions())
+        return -1;
+    return pfnSuspend(g_hTargetProcess);
+}
+
+extern "C" __declspec(dllexport) LONG ResumeTargetProcess()
+{
+    if (!g_hTargetProcess || !EnsureNtFunctions())
+        return -1;
+    return pfnResume(g_hTargetProcess);
 }
