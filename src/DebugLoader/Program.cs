@@ -93,7 +93,7 @@ internal static class Program
         var freeDumpFn = pFreeDump != IntPtr.Zero
             ? Marshal.GetDelegateForFunctionPointer<FreeDumpDelegate>(pFreeDump) : null;
 
-        Console.WriteLine("\nCommands:  (p)ause  (r)esume  (d)ump  (q)uit");
+        Console.WriteLine("\nCommands:  (p)ause  (r)esume  (d)ump  (a)nalyze  (q)uit");
 
         bool running = true;
         while (running)
@@ -139,7 +139,7 @@ internal static class Program
                     ulong sizeBytes = (ulong)size;
                     Console.WriteLine($"done. {sizeBytes:N0} bytes at 0x{pBuf:X}.");
 
-                    Console.Write("Save to file? Enter path (or press Enter to discard): ");
+                    Console.Write("Save to file? Enter path (or press Enter to skip): ");
                     string? savePath = Console.ReadLine()?.Trim();
                     if (!string.IsNullOrEmpty(savePath))
                     {
@@ -155,12 +155,38 @@ internal static class Program
                             Console.WriteLine($"Save failed: {ex.Message}");
                         }
                     }
+
+                    Console.Write("Analyze dump? [Y/n]: ");
+                    string? analyzeChoice = Console.ReadLine()?.Trim().ToLowerInvariant();
+                    if (analyzeChoice is not ("n" or "no"))
+                        DumpAnalyzer.Analyze(pBuf, sizeBytes);
+
                     freeDumpFn();
                     Console.WriteLine("Dump buffer freed.");
                     break;
 
+                case "a" or "analyze":
+                    if (createDumpFn is null || freeDumpFn is null)
+                    {
+                        Console.WriteLine("Dump not available.");
+                        break;
+                    }
+                    // Quick analyze: create a normal dump and print analysis.
+                    Console.Write("Creating dump for analysis... ");
+                    uint ahr = createDumpFn(out IntPtr aBuf, out UIntPtr aSize, 0x0u);
+                    if (ahr != 0)
+                    {
+                        Console.WriteLine($"failed (error {ahr}).");
+                        break;
+                    }
+                    ulong aSizeBytes = (ulong)aSize;
+                    Console.WriteLine($"done. {aSizeBytes:N0} bytes.");
+                    DumpAnalyzer.Analyze(aBuf, aSizeBytes);
+                    freeDumpFn();
+                    break;
+
                 default:
-                    Console.WriteLine("Unknown command. Use (p)ause, (r)esume, (d)ump, or (q)uit.");
+                    Console.WriteLine("Unknown command. Use (p)ause, (r)esume, (d)ump, (a)nalyze, or (q)uit.");
                     break;
             }
         }
