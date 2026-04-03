@@ -5,14 +5,36 @@ A lightweight Windows process debugging toolkit. A C# loader loads a native DLL 
 
 ## Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- Visual Studio 2022 with the **C++ Desktop Development** workload (provides MSVC and CMake)
+### .NET 8 SDK
 
-If `cmake` is not on your PATH, use the VS-bundled copy:
+Download and install from https://dotnet.microsoft.com/download/dotnet/8.0
+
+Verify: `dotnet --version` should show `8.x.x`.
+
+### Visual Studio 2022 with C++ toolchain
+
+Install [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/) (Community edition is fine).
+In the installer, select these workloads/components:
+
+- **Desktop development with C++** — includes MSVC compiler, Windows SDK, and C++ standard libraries
+- **C++ CMake tools for Windows** — installs CMake bundled with VS
+
+If you already have VS installed, open **Visual Studio Installer → Modify** and add the above.
+
+### CMake on PATH (optional)
+
+The VS installer puts CMake here, which is not on PATH by default:
 
 ```
-"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\
 ```
+
+You can either:
+- Add that directory to your system PATH, or
+- Install CMake standalone from https://cmake.org/download/ and check "Add to PATH" during install, or
+- Use the full path in build commands
+
+Verify: `cmake --version` should show `3.20+`.
 
 ## Components
 
