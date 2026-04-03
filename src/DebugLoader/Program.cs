@@ -23,6 +23,12 @@ internal static class Program
 {
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int HookAction();
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate uint CreateDumpDelegate(out IntPtr ppBuffer, out UIntPtr pSize, uint dumpType);
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void FreeDumpDelegate();
     // The DLL communicates the target PID via this environment variable.
     private const string TargetPidEnvVar = "DEBUGHOOK_TARGET_PID";
 
@@ -70,18 +76,24 @@ internal static class Program
         // Resolve exported functions from the hook DLL.
         var pSuspend = NativeMethods.GetProcAddress(hModule, "SuspendTargetProcess");
         var pResume = NativeMethods.GetProcAddress(hModule, "ResumeTargetProcess");
+        var pCreateDump = NativeMethods.GetProcAddress(hModule, "CreateTargetDump");
+        var pFreeDump = NativeMethods.GetProcAddress(hModule, "FreeTargetDump");
 
         if (pSuspend == IntPtr.Zero || pResume == IntPtr.Zero)
-        {
             Console.Error.WriteLine("Warning: Could not resolve suspend/resume exports.");
-        }
+        if (pCreateDump == IntPtr.Zero || pFreeDump == IntPtr.Zero)
+            Console.Error.WriteLine("Warning: Could not resolve dump exports.");
 
         var suspendFn = pSuspend != IntPtr.Zero
             ? Marshal.GetDelegateForFunctionPointer<HookAction>(pSuspend) : null;
         var resumeFn = pResume != IntPtr.Zero
             ? Marshal.GetDelegateForFunctionPointer<HookAction>(pResume) : null;
+        var createDumpFn = pCreateDump != IntPtr.Zero
+            ? Marshal.GetDelegateForFunctionPointer<CreateDumpDelegate>(pCreateDump) : null;
+        var freeDumpFn = pFreeDump != IntPtr.Zero
+            ? Marshal.GetDelegateForFunctionPointer<FreeDumpDelegate>(pFreeDump) : null;
 
-        Console.WriteLine("\nCommands:  (p)ause  (r)esume  (q)uit");
+        Console.WriteLine("\nCommands:  (p)ause  (r)esume  (d)ump  (q)uit");
 
         bool running = true;
         while (running)
@@ -106,8 +118,49 @@ internal static class Program
                     running = false;
                     break;
 
+                case "d" or "dump":
+                    if (createDumpFn is null || freeDumpFn is null)
+                    {
+                        Console.WriteLine("Dump not available.");
+                        break;
+                    }
+                    // MiniDumpNormal = 0x0, MiniDumpWithFullMemory = 0x2
+                    Console.Write("Dump type — (n)ormal or (f)ull memory? [n]: ");
+                    string? dumpChoice = Console.ReadLine()?.Trim().ToLowerInvariant();
+                    uint dumpType = (dumpChoice is "f" or "full") ? 0x2u : 0x0u;
+
+                    Console.Write("Creating dump... ");
+                    uint hr = createDumpFn(out IntPtr pBuf, out UIntPtr size, dumpType);
+                    if (hr != 0)
+                    {
+                        Console.WriteLine($"failed (error {hr}).");
+                        break;
+                    }
+                    ulong sizeBytes = (ulong)size;
+                    Console.WriteLine($"done. {sizeBytes:N0} bytes at 0x{pBuf:X}.");
+
+                    Console.Write("Save to file? Enter path (or press Enter to discard): ");
+                    string? savePath = Console.ReadLine()?.Trim();
+                    if (!string.IsNullOrEmpty(savePath))
+                    {
+                        try
+                        {
+                            byte[] buf = new byte[sizeBytes];
+                            Marshal.Copy(pBuf, buf, 0, (int)sizeBytes);
+                            File.WriteAllBytes(savePath, buf);
+                            Console.WriteLine($"Saved to {savePath}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Save failed: {ex.Message}");
+                        }
+                    }
+                    freeDumpFn();
+                    Console.WriteLine("Dump buffer freed.");
+                    break;
+
                 default:
-                    Console.WriteLine("Unknown command. Use (p)ause, (r)esume, or (q)uit.");
+                    Console.WriteLine("Unknown command. Use (p)ause, (r)esume, (d)ump, or (q)uit.");
                     break;
             }
         }
