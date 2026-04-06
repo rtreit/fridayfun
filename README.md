@@ -45,6 +45,7 @@ Verify: `cmake --version` should show `3.20+`.
 | `src/TargetApp` | C++ (CMake) | Simple target process that prints its PID and keeps running for the debugger to attach to. |
 | `src/TargetAppMinimal` | C (no CRT) | Ultra-minimal target process — no C runtime, ~4.5 KB binary, ~3.9 MB working set. Smallest possible minidump footprint. |
 | `src/TargetAppRust` | Rust | Rust implementation of the target process. Uses std but optimized for size (LTO, strip, panic=abort). |
+| `src/offensive-security/process-hollowing` | C++/Python/PowerShell | Educational process hollowing samples for testing detection capabilities. |
 
 ## Build Everything
 
@@ -118,3 +119,39 @@ The hook DLL has now opened a handle to the target process with read/write/query
 **Step 3 — Press Enter** in the loader terminal to unload the DLL (closes the handle) and exit.
 
 **Step 4 — Press Ctrl+C** in the target terminal to shut it down.
+
+## Offensive Security Tools
+
+The repository also includes educational offensive security samples designed for testing detection capabilities:
+
+### Process Hollowing Samples
+
+Located in `src/offensive-security/process-hollowing/`, these tools demonstrate process hollowing techniques in multiple languages:
+
+- **C++ implementation** - Native Windows API calls
+- **Python version** - Using ctypes for Windows API access
+- **PowerShell script** - .NET interop for Windows APIs
+
+**⚠️ WARNING**: These tools are for educational and authorized testing purposes only. Do not use against systems you do not own or have explicit permission to test.
+
+#### Usage Example:
+```powershell
+# PowerShell version (run as Administrator)
+cd src\offensive-security\process-hollowing\
+.\process_hollowing.ps1 -TargetPath "C:\Windows\System32\calc.exe"
+
+# Python version
+python process_hollowing.py "C:\Windows\System32\notepad.exe"
+
+# C++ version (compile first)
+.\compile.bat
+.\process_hollowing.exe "C:\Windows\System32\calc.exe"
+```
+
+These samples include:
+- Safe MessageBox payload for testing
+- Detailed logging of each technique step
+- Pause before execution for monitoring setup
+- Comprehensive detection guidance in the README
+
+See the [Process Hollowing README](src/offensive-security/process-hollowing/README.md) for detailed usage instructions and detection guidance.
